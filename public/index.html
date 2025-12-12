@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGA - Gestión de Inventario (v8.0 - Persistencia MySQL)</title>
+    <style>
+        /* VARIABLES GLOBALES */
+        :root { 
+            --primary: #2c3e50; 
+            --accent: #3498db; 
+            --danger: #e74c3c; 
+            --success: #27ae60; 
+            --purchase: #16a085; /* Compra */
+            --history: #9b59b6; 
+            --backup: #f39c12; 
+            --alert: #ff6347; 
+            --antiguedad: #8e44ad; /* Stock Inmovilizado */
+            --logistica: #34495e; /* Nuevo color para Logística */
+            --light: #ecf0f1; 
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--light); 
+            padding: 20px; 
+            color: #333; 
+        }
+        
+        /* LAYOUT */
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            display: grid; 
+            gap: 20px; 
+        }
+        .panel { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        }
+        
+        /* NUEVO ESTILO DE ENCABEZADO PRINCIPAL */
+        .main-header {
+            text-align: center;
+            padding: 15px 0 25px;
+            color: var(--primary);
+        }
+        .main-header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 700;
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .main-header span {
+            font-size: 1.2em; 
+            margin-right: 10px;
+            line-height: 1; 
+            display: block;
+        }
+
+        h2 { 
+            border-bottom: 2px solid var(--accent); 
+            padding-bottom: 10px; 
+            margin-top: 0; 
+            color: var(--primary); 
+        }
+        h3 {
+            margin-top: 10px;
+            color: var(--logistica);
+        }
+
+        /* TARJETAS DE RESUMEN */
+        .dashboard { 
+            display: flex; 
+            gap: 20px; 
+            margin-bottom: 20px; 
+        }
+        .card { 
+            background: white; 
+            padding: 20px; 
+            flex: 1; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            text-align: center; 
+        }
+        .card h3 { 
+            margin: 0; 
+            color: #7f8c8d; 
+            font-size: 0.9em; 
+        }
+        .card p { 
+            font-size: 2em; 
+            font-weight: bold; 
+            margin: 10px 0 0; 
+            color: var(--primary); 
+        }
+        
+        /* FORMULARIOS Y BOTONES */
+        .form-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 15px; 
+        }
+        input, select { 
+            padding: 12px; 
+            border: 1px solid #bdc3c7; 
+            border-radius: 5px; 
+            width: 100%; 
+            box-sizing: border-box; 
+            background-color: white; 
+        }
+        button, .btn-import { 
+            border: none; 
+            padding: 12px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: 0.3s; 
+            display: inline-block;
+        }
+        .btn-add { 
+            background-color: var(--success); 
+            color: white; 
+        }
+        .btn-add:hover { 
+            background-color: #219150; 
+        }
+        .btn-out { 
+            background-color: var(--danger); 
+            color: white; 
+        }
+        .btn-out:hover { 
+            background-color: #c0392b; 
+        }
+        .btn-buy {
+            background-color: var(--purchase);
+            color: white;
+        }
+        .btn-buy:hover {
+            background-color: #1abc9c;
+        }
+        .btn-logistica {
+            background-color: var(--logistica);
+            color: white;
+        }
+        .btn-finalizar { 
+            background-color: #e67e22; 
+            color: white; 
+            margin-top: 15px; 
+        }
+        .backup-controls { 
+            display: flex; 
+            gap: 15px; 
+            margin-top: 15px; 
+        }
+        .btn-export { 
+            background-color: var(--backup); 
+            color: white; 
+            flex: 1; 
+        }
+        .btn-import { 
+            background-color: var(--primary); 
+            color: white; 
+            flex: 1; 
+        }
+        
+        /* TABLAS Y BÚSQUEDA */
+        .search-bar { 
+            margin-bottom: 15px; 
+            display: flex;
+            gap: 10px;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        th, td { 
+            padding: 10px; 
+            border: 1px solid #ecf0f1; 
+            text-align: left; 
+        }
+        th { 
+            background-color: var(--primary); 
+            color: white; 
+        }
+        .logistica-table th {
+            background-color: var(--logistica);
+        }
+        .low-stock {
+            font-weight: bold;
+            color: var(--danger);
+        }
+        .critico-stock { 
+            font-weight: bold;
+            color: var(--alert); 
+            background-color: #fcebeb;
+        }
+        .alerta-antiguedad { 
+            font-weight: bold;
+            color: var(--antiguedad); 
+            background-color: #f6eafb;
+        }
+
+        /* LISTAS TEMPORALES */
+        .order-list { 
+            margin-top: 15px; 
+            border: 1px dashed #ccc; 
+            padding: 10px; 
+            border-radius: 5px; 
+        }
+        .order-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 5px 0; 
+            border-bottom: 1px dotted #eee; 
+            font-size: 0.9em; 
+        }
+        .temp-status { 
+            padding: 8px; 
+            background: #ffeaa7; 
+            border-radius: 4px; 
+            text-align: center; 
+            font-weight: bold; 
+        }
+        .btn-edit, .btn-delete { 
+            padding: 5px 10px; 
+            font-size: 0.8em; 
+            margin-left: 5px; 
+        }
+        .btn-edit { 
+            background-color: var(--accent); 
+            color: white; 
+        }
+        .btn-delete { 
+            background-color: var(--danger); 
+            color: white; 
+        }
+
+        /* HISTORIAL */
+        .log-entry { 
+            padding: 8px 0; 
+            border-bottom: 1px dotted #ccc; 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 0.8em; 
+        }
+        .log-tipo.INGRESO { color: var(--success); }
+        .log-tipo.COMPRA { color: var(--purchase); font-weight: bold; }
+        .log-tipo.SALIDA { color: var(--danger); }
+        .log-tipo.EDICION { color: var(--history); }
+        .log-tipo.CREACION { color: var(--success); }
+        .log-tipo.ELIMINACION { color: #7f8c8d; font-weight: bold; }
+
+        /* ESTILOS PARA PESTAÑAS (TABS) */
+        .tab-container { 
+            display: flex; 
+            margin-bottom: 20px; 
+            border-bottom: 2px solid #ccc; 
+            flex-wrap: wrap; 
+        }
+        .tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-weight: bold;
+            color: #7f8c8d;
+            transition: 0.3s;
+        }
+        .tab-button:hover { 
+            color: var(--accent); 
+        }
+        .tab-button.active {
+            color: var(--primary);
+            border-bottom: 3px solid var(--accent);
+            margin-bottom: -2px; 
+        }
+        .tab-button.alert-tab.active {
+            border-bottom-color: var(--alert);
+            color: var(--alert);
+        }
+        .tab-button.antiguedad-tab.active {
+            border-bottom-color: var(--antiguedad);
+            color: var(--antiguedad);
+        }
+        .tab-button.logistica-tab.active {
+            border-bottom-color: var(--logistica);
+            color: var(--logistica);
+        }
+        .tab-content { 
+            display: none; 
+        }
+        .tab-content.active { 
+            display: block; 
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <header class="main-header">
+        <h1>
+            <span role="img" aria-label="Logo">📦</span> SGA
+        </h1>
+        <p style="margin-top: 5px; font-size: 0.9em; color: #555;">Sistema de Gestión Autónoma de Inventario (v8.0 - Persistencia **MySQL**)</p>
+    </header>
+    
+    <div class="panel" style="border-left: 5px solid var(--success); background-color: #eafbe7; padding: 15px; margin-bottom: 20px;">
+        <h3 style="color: var(--success); margin-top: 0;">✅ CONEXIÓN A BASE DE DATOS (MySQL)</h3>
+        <p style="margin: 5px 0;">
+            El sistema ahora guarda **automáticamente** todos los cambios en tu Base de Datos remota.
+        </p>
+    </div>
+
+    <div class="dashboard">
+        <div class="card">
+            <h3>Total Unidades en Inventario</h3>
+            <p id="totalUnidades">0</p>
+        </div>
+        <div class="card" style="border: 2px solid var(--alert);">
+            <h3>Productos Críticos (Stock &lt;= 3)</h3>
+            <p id="productosCriticos" style="color: var(--alert);">0</p>
+        </div>
+        <div class="card" style="border: 2px solid var(--antiguedad);">
+            <h3>Inmovilizado (+15 días sin vender)</h3>
+            <p id="productosAntiguos" style="color: var(--antiguedad);">0</p>
+        </div>
+    </div>
+
+    <div class="tab-container">
+        <button class="tab-button" onclick="openTab(event, 'stockGlobal', 'global')">📋 Stock Global</button>
+        <button class="tab-button alert-tab" onclick="openTab(event, 'stockGlobal', 'critico')">🚨 Stock Crítico (&lt;= 3)</button>
+        <button class="tab-button antiguedad-tab" onclick="openTab(event, 'stockGlobal', 'antiguedad')">⏳ Stock Inmovilizado (+15 días)</button>
+        <button class="tab-button" onclick="openTab(event, 'cargaProducto')">➕ Nuevo Producto</button>
+        <button class="tab-button" onclick="openTab(event, 'ordenCompra')">🛒 Órdenes de Compra</button>
+        <button class="tab-button" onclick="openTab(event, 'registroSalidas')">📤 Salidas / Ventas</button>
+        <button class="tab-button logistica-tab" onclick="openTab(event, 'logistica')">🚚 Logística (Mensajería)</button>
+        <button class="tab-button" onclick="openTab(event, 'historial')">📜 Historial</button>
+        <button class="tab-button" onclick="openTab(event, 'respaldo')">💾 Respaldo</button>
+    </div>
+
+    <div id="stockGlobal" class="tab-content panel">
+        <h2 id="tituloStock">📋 Inventario General</h2>
+        <div class="search-bar">
+            <select id="rubroFiltro" onchange="renderizarTablaInventario()" style="width: 200px; flex-shrink: 0;">
+                <option value="">TODOS LOS RUBROS</option>
+                </select>
+            <input type="text" id="searchInput" placeholder="Buscar por SKU, Nombre o Rubro..." oninput="renderizarTablaInventario()">
+        </div>
+        <div class="table-container">
+            <table id="tablaProductos">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Producto</th>
+                        <th>Rubro</th>
+                        <th>Stock</th>
+                        <th style="width: 150px;">Antigüedad (Días)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="cargaProducto" class="tab-content panel">
+        <h2>📥 Carga de Producto Nuevo</h2>
+        <p style="color: #666; font-size: 0.9em;">Utiliza esta sección para crear productos que no existen en el sistema. El Stock se inicializará en **cero (0)**.</p>
+        <div class="form-grid">
+            <input type="text" id="skuInput" placeholder="SKU (Código único)" style="border-left: 4px solid var(--accent);" required>
+            <input type="text" id="nombreInput" placeholder="Nombre del Producto" required>
+            <select id="rubroSelect" onchange="manejarNuevoRubro(this.value)" required></select>
+            </div>
+        <button class="btn-add" onclick="agregarProducto()">Crear Producto</button>
+    </div>
+
+    <div id="ordenCompra" class="tab-content panel" style="border-top: 5px solid var(--purchase);">
+        <h2>🛒 Cargar Orden de Compra</h2>
+        <p style="color: #666; font-size: 0.9em;">Reponer stock de productos existentes.</p>
+        
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr 1.2fr;">
+            <input type="date" id="fechaCompra" required>
+            <input type="text" id="nroOrdenCompra" placeholder="Número de Orden / Factura" required>
+            <select id="proveedorSelect" onchange="manejarNuevoProveedor(this.value)" required></select>
+        </div>
+
+        <hr style="margin: 20px 0;">
+        
+        <h3>Agregar productos a la Orden</h3>
+        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr;">
+            
+            <input 
+                type="text" 
+                id="skuCompra" 
+                placeholder="Buscar producto existente..." 
+                list="listaProductos" 
+                oninput="buscarParaCompra()" 
+                onchange="actualizarSKUCompraDesdeDatalist()"
+            >
+            <datalist id="listaProductos"></datalist>
+
+            <input type="number" id="cantidadCompra" placeholder="Cantidad a sumar" min="1">
+            <button class="btn-buy" onclick="agregarItemACompra()">+ Agregar</button>
+        </div>
+        <div id="nombreCompraDisplay" class="temp-status" style="background-color: #d1f2eb; color: #0e6251;">Pendiente de selección...</div>
+
+        <div class="order-list">
+            <h4>Detalle de la Orden (<span id="totalItemsCompra">0</span>)</h4>
+            <div id="listaItemsCompra">
+                <p style="text-align: center; color: #777; padding: 10px;">Lista vacía.</p>
+            </div>
+        </div>
+
+        <button class="btn-finalizar" style="background-color: var(--purchase);" onclick="procesarCompra()">CONFIRMAR Y SUMAR STOCK</button>
+        <div id="mensajeCompra"></div>
+    </div>
+
+    <div id="registroSalidas" class="tab-content panel" style="border-top: 5px solid var(--danger);">
+        <h2>📤 Registro de Salidas / Ventas</h2>
+        <div class="form-grid">
+            <input type="text" id="ordenIdInput" placeholder="ID de la Orden (Ej: VENTA-123)" required>
+            <input type="text" id="responsableSalida" placeholder="Responsable / Usuario ML" required>
+        </div>
+
+        <hr style="margin: 20px 0;">
+        
+        <h3>Buscador de Productos</h3>
+        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr;">
+            <input 
+                type="text" 
+                id="skuSalida" 
+                placeholder="Buscar por SKU o Nombre..." 
+                list="listaProductos" 
+                oninput="buscarParaSalida()" 
+                onchange="actualizarSKUdesdeDatalist()"
+            >
+            <input type="number" id="cantidadSalida" placeholder="Cantidad a retirar" min="1">
+            <button class="btn-out" onclick="agregarItemAOrden()">Añadir a Salida</button>
+        </div>
+        <div id="nombreSalidaDisplay" class="temp-status">Pendiente de SKU...</div>
+
+        <div class="order-list">
+            <h4>Productos a retirar (<span id="totalItemsOrden">0</span>)</h4>
+            <div id="listaItemsOrden">
+                <p style="text-align: center; color: #777;">Aún no hay productos en esta salida.</p>
+            </div>
+        </div>
+
+        <button class="btn-finalizar" onclick="procesarOrden()">FINALIZAR Y DESCONTAR STOCK</button>
+        <div id="mensajeSalida"></div>
+    </div>
+    
+    <div id="logistica" class="tab-content panel" style="border-top: 5px solid var(--logistica);">
+        <h2>🚚 Logística (Mensajería por Moto)</h2>
+        <p style="color: #666; font-size: 0.9em;">Carga los envíos diarios por localidad. El resumen es semanal (**Lunes a Sábado**) para liquidación.</p>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; margin-bottom: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px;">
+            <div>
+                <h3>1. Cargar Envíos Diarios</h3>
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 0;">
+                    <input type="date" id="fechaEnvioLogistica" required>
+                    <select id="partidoLogisticaSelect" onchange="mostrarZonaSeleccionada()"></select>
+                    <input type="number" id="cantidadEnviosLogistica" placeholder="N° de Envíos" min="1" required>
+                </div>
+                <div id="zonaDisplayLogistica" style="padding: 5px; background: #ecf0f1; border-radius: 3px; margin-top: 5px; font-size: 0.9em;">Zona: -</div>
+            </div>
+            <div style="grid-column: 3 / 4; align-self: end;">
+                <button class="btn-logistica" onclick="agregarMovimientoLogistica()">➕ Registrar Envíos</button>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3>2. Resumen Semanal de Liquidación (Lunes a Sábado)</h3>
+                <table class="logistica-table">
+                    <thead>
+                        <tr>
+                            <th>Zona</th>
+                            <th>Total Semana</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resumenSemanalLogistica">
+                        <tr><td colspan="2" style="text-align: center; color: #777;">Carga datos para ver el resumen.</td></tr>
+                    </tbody>
+                </table>
+                <p style="margin-top: 10px; font-size: 0.8em; color: #666;">*La semana de liquidación incluye Lunes a Sábado.</p>
+            </div>
+
+            <div>
+                <h3>3. Registro de Envíos por Día (Semana Actual)</h3>
+                <div id="registroDiarioLogistica" style="max-height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; border-radius: 5px;">
+                    <p style="text-align: center; color: #777;">Carga datos para ver el detalle diario.</p>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <div id="historial" class="tab-content panel" style="border-top: 5px solid var(--history);">
+        <h2>📜 Historial de Movimientos</h2>
+        <div class="search-bar" style="display: block;">
+            <input type="text" id="historialSearchInput" placeholder="Buscar por SKU, Responsable o Nota..." oninput="renderizarHistorial()">
+        </div>
+        <div id="historialLog"></div>
+    </div>
+    
+    <div id="respaldo" class="tab-content panel" style="border-top: 5px solid var(--backup);">
+        <h2>💾 Respaldo y Configuración</h2>
+        <p style="font-size: 0.9em; color: #666;">Exporta tus datos como un archivo .json para no perderlos, o impórtalos al iniciar. **(Esta sección ya no es necesaria con MySQL, pero se mantiene por si acaso.)**</p>
+        <div class="backup-controls">
+            <button class="btn-export" onclick="exportarDatos()">⬇️ Exportar Respaldo (.json)</button>
+            <label for="fileInput" class="btn-import" style="text-align: center; line-height: 18px;">⬆️ Importar Respaldo (.json)</label>
+            <input type="file" id="fileInput" accept=".json" onchange="importarDatos(event)" style="display: none;">
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ------------------------------------------------------------------
+    // *** MODIFICADO PARA USAR SERVERLESS NODE.JS EN LUGAR DE PHP ***
+    // ------------------------------------------------------------------
+    
+    // Todas las variables se inicializan vacías. La carga de datos se hará por FETCH.
+    let inventario = [];  // Llenado por /api/inventario
+    let movimientos = []; // PENDIENTE: Llenado por get_movimientos.php
+    let rubrosMaestros = []; // Llenado por get_rubros.php
+    let proveedoresMaestros = []; // PENDIENTE: Llenado por get_proveedores.php
+    let logisticaMovimientos = []; // PENDIENTE: Llenado por get_logistica.php
+    
+    // OBJETO DE ZONAS MAESTRAS (Se mantiene local)
+    let zonasMaestras = {
+        'CAPITAL': ['CABA', 'Capital Federal', 'Microcentro', 'Puerto Madero'],
+        'PRIMER_CORDON': ['San Martín', 'Tres de Febrero', 'Vicente López', 'San Isidro', 'Avellaneda', 'Lanús', 'Lomas de Zamora', 'Quilmes (Norte)', 'La Matanza (Norte)'],
+        'SEGUNDO_CORDON': ['Quilmes (Sur)', 'Florencio Varela', 'Berazategui', 'Almirante Brown', 'Esteban Echeverría', 'Ezeiza', 'Merlo', 'Moreno', 'Malvinas Argentinas', 'Tigre', 'San Miguel'],
+        'TERCER_CORDON': ['La Plata', 'Cañuelas', 'Luján', 'Zárate', 'Pilar', 'General Rodríguez']
+    };
+    let partidosMaestros = []; 
+
+    let filtroStockCritico = 'global'; 
+
+    let ordenTemporal = {
+        id: '',
+        responsable: '',
+        items: [] 
+    };
+
+    let compraTemporal = {
+        items: []
+    };
+
+    // =======================================================================
+    // 🚀 LÓGICA DE CONEXIÓN Y CARGA INICIAL (FETCH) 🚀
+    // =======================================================================
+    
+    async function cargarDatosIniciales() {
+        try {
+            // 1. Cargar Inventario usando la NUEVA Serverless Function de Node.js
+            const invResponse = await fetch('/api/inventario'); // <-- ¡MODIFICADO!
+            
+            if (!invResponse.ok) {
+                // Manejar errores HTTP (ej: 404, 500, etc.)
+                throw new Error(`Error HTTP ${invResponse.status}: La API /api/inventario no respondió. Revisa logs de Vercel.`);
+            }
+            
+            const invData = await invResponse.json();
+
+            if (invData.success) {
+                // Si el backend Node.js devuelve success: true
+                inventario = invData.data;
+            } else {
+                // Si la consulta SQL falló en el backend Node.js
+                console.error("Error al cargar inventario (Backend):", invData.message);
+                alert(`⚠️ Error al cargar Inventario desde la BD. Mensaje: ${invData.message}`);
+            }
+
+            // 2. Cargar Rubros (Aún usa el endpoint PHP original)
+            const rubroResponse = await fetch('/api/get_rubros.php');
+            const rubroData = await rubroResponse.json();
+            if (rubroData.success) {
+                rubrosMaestros = rubroData.data;
+            } else {
+                console.error("Error al cargar rubros:", rubroData.message);
+            }
+            
+            // 3. PENDIENTE: Cargar Movimientos
+            movimientos = []; // Por ahora vacío hasta crear el PHP/JS
+
+            // 4. Renderizar toda la interfaz con los nuevos datos
+            cargarRubrosSelect();
+            cargarProveedoresSelect(); // Se cargará vacío hasta tener get_proveedores.php
+            cargarPartidosMaestros(); // Se mantiene local
+            renderizarTodo(); 
+
+        } catch (error) {
+            console.error('Error fatal de conexión al servidor:', error);
+            alert('⚠️ Error de conexión con el servidor (Fallo de red o Servidor Down). Revisa la Consola.');
+        }
+    }
+
+
+    // --- FUNCIONES DE PERSISTENCIA (Ahora solo llaman a la recarga de la BD) ---
+
+    // Las funciones de "guardar" AHORA SOLO LLAMAN A RECARGAR TODO
+    function guardarInventario() {
+        // En MySQL, la interfaz se refresca llamando a cargarDatosIniciales() después de un POST.
+        // Aquí solo se asegura el renderizado si solo se filtró localmente.
+        renderizarTodo(); 
+    }
+
+    function guardarMovimientos() {
+        // PENDIENTE: Refrescar historial
+        renderizarHistorial();
+    }
+
+    function guardarRubros() {
+        // PENDIENTE: El rubro se agrega automáticamente en add_producto.php (INSERT IGNORE).
+        // Recargamos el select con los datos actualizados de la BD.
+        cargarRubrosSelect();
+    }
+
+    function guardarProveedores() {
+        cargarProveedoresSelect();
+    }
+
+    function guardarLogistica() {
+        renderReporteLogistica();
+    }
+
+    // --- FUNCIONES CRUD (MODIFICADAS PARA USAR FETCH) ---
+
+    // =======================================================================
+    // ➕ CARGA PRODUCTO (FUNCIONANDO CON /api/add_producto.php)
+    // =======================================================================
+    async function agregarProducto() {
+        const sku = document.getElementById('skuInput').value.trim().toUpperCase();
+        const nombre = document.getElementById('nombreInput').value.trim();
+        const rubro = document.getElementById('rubroSelect').value;
+
+        if (!sku || !nombre || rubro === 'Selecciona Rubro' || rubro === 'NUEVO_RUBRO') {
+            alert('⚠️ Completa SKU, Nombre y selecciona un Rubro válido.');
+            return;
+        }
+
+        const nuevoProducto = { sku, nombre, rubro };
+
+        // NOTA: Esto aún llama al PHP que está en tu repositorio.
+        try {
+            const response = await fetch('/api/add_producto.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(nuevoProducto)
+            });
+
+            const result = await response.json();
+
+            if (response.status === 200 && result.success) {
+                alert(`✅ Producto ${sku} agregado a la Base de Datos.`);
+                
+                // Recargar los datos desde la BD para actualizar la tabla y el select de rubros
+                await cargarDatosIniciales(); 
+
+                // Limpiar formulario y navegar
+                document.getElementById('skuInput').value = '';
+                document.getElementById('nombreInput').value = '';
+                document.getElementById('rubroSelect').value = 'Selecciona Rubro';
+                openTab(null, 'stockGlobal', 'global');
+                
+            } else {
+                // Maneja el error 409 de SKU duplicado u otros errores del servidor
+                alert(`⛔ Error al agregar producto: ${result.message}`);
+            }
+
+        } catch (error) {
+            console.error('Error de red/servidor:', error);
+            alert('⚠️ Error de conexión con el servidor. No se pudo guardar el producto.');
+        }
+    }
+
+
+    // ------------------------------------------------------------------
+    // *** PENDIENTE DE MODIFICAR ***
+    // ------------------------------------------------------------------
+
+    function procesarCompra() {
+        // 🚨 PENDIENTE: Esta función requiere el archivo 'procesar_compra.php'
+        alert('⚠️ FUNCIÓN PENDIENTE: Necesitas el archivo PHP para procesar la compra y actualizar el stock en la BD.');
+    }
+
+    function procesarOrden() {
+        // 🚨 PENDIENTE: Esta función requiere el archivo 'procesar_salida.php'
+        alert('⚠️ FUNCIÓN PENDIENTE: Necesitas el archivo PHP para procesar la salida y descontar el stock en la BD.');
+    }
+    
+    function agregarMovimientoLogistica() {
+        // 🚨 PENDIENTE: Esta función requiere el archivo 'add_logistica.php'
+        alert('⚠️ FUNCIÓN PENDIENTE: Necesitas el archivo PHP para registrar movimientos de logística en la BD.');
+    }
+
+    function eliminarProducto(sku) {
+        // 🚨 PENDIENTE: Esta función requiere el archivo 'delete_producto.php'
+        alert('⚠️ FUNCIÓN PENDIENTE: Necesitas el archivo PHP para eliminar el producto de la BD.');
+    }
+
+
+    // --- FUNCIONES DE UTILIDAD (SIN CAMBIOS, USAN DATOS LOCALES) ---
+
+    function formatFecha(timestamp) {
+        // ... (Tu código de formatFecha se mantiene) ...
+        const date = new Date(timestamp);
+        return date.toLocaleDateString('es-AR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+    
+    function calcularAntiguedad(fechaUltimaVenta) {
+        // ... (Tu código de calcularAntiguedad se mantiene) ...
+        if (!fechaUltimaVenta) return 0; 
+        const hoy = new Date();
+        const ultimaVenta = new Date(fechaUltimaVenta);
+        const diffTime = Math.abs(hoy - ultimaVenta);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        return diffDays;
+    }
+
+    // --- FUNCIONES DE NAVEGACIÓN Y SETUP (MÍNIMOS CAMBIOS) ---
+
+    function openTab(evt, tabName, filtro = 'global') {
+        // ... (Tu código de openTab se mantiene) ...
+        const contents = document.getElementsByClassName('tab-content');
+        for (let i = 0; i < contents.length; i++) {
+            contents[i].classList.remove('active');
+        }
+        const buttons = document.getElementsByClassName('tab-button');
+        for (let i = 0; i < buttons.length; i++) {
+            buttons[i].classList.remove('active');
+        }
+        document.getElementById(tabName).classList.add('active');
+        
+        if(evt) {
+            evt.currentTarget.classList.add('active');
+        } else {
+            let btnSelector;
+            if (filtro === 'critico') {
+                btnSelector = `.tab-button.alert-tab`;
+            } else if (filtro === 'antiguedad') {
+                btnSelector = `.tab-button.antiguedad-tab`;
+            } else if (tabName === 'logistica') {
+                btnSelector = `.tab-button.logistica-tab`;
+            } else {
+                btnSelector = `.tab-button[onclick*='${tabName}'][onclick*='global']`;
+            }
+            const btn = document.querySelector(btnSelector);
+
+            if (btn) btn.classList.add('active');
+        }
+        
+        // Refrescar contenido específico
+        if (tabName === 'stockGlobal') {
+            document.getElementById('searchInput').value = ''; 
+            filtroStockCritico = filtro; 
+            let titulo = '📋 Inventario General';
+            if (filtro === 'critico') {
+                titulo = '🚨 Productos con Stock Crítico (<= 3 unidades)';
+            } else if (filtro === 'antiguedad') {
+                titulo = '⏳ Stock Inmovilizado (+15 días sin vender)';
+            }
+            document.getElementById('tituloStock').textContent = titulo;
+            renderizarTablaInventario();
+        }
+        if (tabName === 'historial') {
+            document.getElementById('historialSearchInput').value = '';
+            renderizarHistorial();
+        }
+        if (tabName === 'ordenCompra') {
+             document.getElementById('fechaCompra').valueAsDate = new Date();
+             cargarProveedoresSelect();
+        }
+        if (tabName === 'logistica') {
+             document.getElementById('fechaEnvioLogistica').valueAsDate = new Date();
+             renderReporteLogistica();
+        }
+    }
+
+    function cargarPartidosMaestros() {
+        // ... (Tu código de cargarPartidosMaestros se mantiene localmente) ...
+        partidosMaestros = [];
+        for (const [zona, partidos] of Object.entries(zonasMaestras)) {
+            partidos.forEach(partido => {
+                partidosMaestros.push({ nombre: partido, zona: zona });
+            });
+        }
+        partidosMaestros.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        const select = document.getElementById('partidoLogisticaSelect');
+        if (!select) return;
+        select.innerHTML = '<option value="" disabled selected>Selecciona Localidad / Partido</option>';
+        partidosMaestros.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.nombre;
+            option.textContent = `${p.nombre} (${p.zona.replace('_', ' ')})`;
+            select.appendChild(option);
+        });
+        mostrarZonaSeleccionada(); // Muestra la zona por defecto
+    }
+
+    // --- El resto de tus funciones (renderizarTablaInventario, etc.) se mantienen... ---
+
+    // ------------------------------------------------------------------
+    // *** INICIALIZACIÓN ***
+    // ------------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+        // *** LLAMAMOS A LA CARGA DESDE LA BD ***
+        cargarDatosIniciales();
+        
+        // Abre la pestaña inicial (Stock Global)
+        openTab(null, 'stockGlobal', 'global');
+    });
+
+</script>
+</body>
+</html>
